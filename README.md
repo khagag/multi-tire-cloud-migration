@@ -54,6 +54,7 @@ CI/CD is built around CodePipeline with an ECS blue/green deployment through Cod
 
 This gives zero-downtime deploys with an automatic safety net, rather than relying on manual rollback.
 #### Monitoring Flow
+![Monitoring Diagram](./imgs/Monitoring.png)
 - AWS X-Ray is instrumented in all three services (Auth, Orders, Notifications), so a single request can be traced end-to-end across service boundaries. X-Ray builds a service map, making it easy to spot which service is introducing latency or errors in a call chain.
 - CloudWatch Logs collects application and access logs from each service; CloudWatch Metrics/Dashboards aggregate CPU, memory, request count, and error rate per service.
 - CloudWatch Alarms are set on the key health metrics. When triggered, they publish to an SNS "Ops Alerts" topic, which is intentionally kept separate from the application-level Notifications-service SNS topic to avoid mixing operational alerts with user-facing notification events.
@@ -64,7 +65,6 @@ Multi-AZ data tier: Amazon RDS runs in Multi-AZ mode with a synchronously-replic
 - Deployment safety net: CodeDeploy's blue/green rollout with CloudWatch-alarm-gated automatic rollback (see Pipeline Flow) prevents a bad deploy from becoming an outage.
 - No server management overhead: since everything runs on Fargate, there's no EC2 patching, capacity planning, or cluster scaling to manage directly — AWS handles the underlying compute lifecycle, which keeps operational effort low (per the project's constraint).
 ### Networking layer
-- Public subnets (one per AZ) host the Application Load Balancer and a NAT Gateway. An Internet Gateway attached to the VPC gives the public subnets internet reachability, and CloudFront sits in front of the ALB at the edge.
+- Public subnets (one per AZ) host the Application Load Balancer. An Internet Gateway attached to the VPC gives the public subnets internet reachability, and CloudFront sits in front of the ALB at the edge.
 - Private subnets (one per AZ) host the ECS Fargate tasks for all three services, along with RDS and ElastiCache — none of these are directly internet-routable.
-- Egress from private subnets (e.g., pulling container images, calling third-party APIs) goes out through the NAT Gateway in the same AZ, keeping the compute and data tier off the public internet while still allowing outbound calls.
-- Each subnet tier has its own route table: public subnets route `0.0.0.0/0` to the Internet Gateway, private subnets route `0.0.0.0/0` to the NAT Gateway in the same AZ.
+- Each subnet tier has its own route table: public subnets route `0.0.0.0/0` to the Internet Gateway.
